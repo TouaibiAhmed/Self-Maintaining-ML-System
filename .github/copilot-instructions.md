@@ -1,0 +1,18 @@
+# Rules for this repository
+- The source of truth is docs/PROJECT_SPEC.md. Follow it for scope and behavior.
+- Implement ONE milestone at a time. Never generate the whole repo at once.
+- Before coding, summarize the files you will create/change and the design.
+- Write complete, runnable code (no pseudocode, no TODO placeholders).
+- Include pytest tests for normal behavior AND failure paths.
+- After finishing, give exact commands to run and expected output.
+- Never claim tests passed unless you actually ran them in the terminal.
+- No secrets or real customer data in Git. Use .env.example placeholders.
+- Pin dependency versions and document them.
+- Never promote a model based on drift alone or training accuracy.
+- Compute performance only on rows with ground-truth labels, and report sample size.
+- Compare champion and challenger on the same holdout set.
+- Reject candidates when evidence is insufficient or any gate fails.
+- Preserve the last-known-good model on every failure path.
+- Make alerts and promotions idempotent, with cooldowns and retry limits.
+- Python 3.11, Windows + Docker Desktop. Use pathlib, not hard-coded paths.
+- STOP at the end of each milestone and wait for me to verify.
