@@ -1,6 +1,7 @@
 .venv/
 .env
-
+.env.exemple
+.env.*
 data/raw/*
 !data/raw/.gitkeep
 data/processed/*
