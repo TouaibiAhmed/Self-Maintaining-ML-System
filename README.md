@@ -48,8 +48,29 @@ The planned system separates:
 
 ## How to run
 
-**TODO:** document the Docker Compose startup command, local API command,
-environment setup, health checks, and experiment workflow.
+The initial training command is:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python scripts\train_initial_model.py
+```
+
+Training validates the cleaned input schema, writes a 30% labeled production
+pool to `data/processed/production_pool.csv`, and creates versioned artifacts
+under `artifacts/`. The remaining data is split into stratified
+train/validation/test sets using seed 42. The fixed reference training sample
+is written to `data/reference/reference.parquet` only when it does not already
+exist.
+
+Missing numeric values are retained during cleaning and handled by median
+imputation for model features. Missing categorical values are handled with
+most-frequent imputation. Categorical features are one-hot encoded with
+unknown-category handling. The logistic regression baseline uses
+`class_weight="balanced"` to account for churn class imbalance. The validation
+split selects a fixed probability threshold; the test split is evaluated once.
+
+**TODO:** document the Docker Compose startup command, API health checks, and
+full experiment workflow.
 
 ## Limitations
 
