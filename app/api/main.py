@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -13,6 +14,7 @@ from app.api.routes import router
 from app.core.config import Settings
 from app.core.logging import configure_logging, get_logger, log_event
 from app.core.model_loader import ModelStore
+from app.db.session import create_db_engine, create_session_factory
 
 logger = get_logger(__name__)
 
@@ -25,12 +27,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         runtime_settings = settings or Settings()
         configure_logging(runtime_settings.log_level)
         application.state.model_store = None
+        application.state.db_engine = None
+        application.state.session_factory = None
         try:
             application.state.model_store = ModelStore(runtime_settings.model_dir)
         except (FileNotFoundError, OSError, ValueError) as exc:
             logger.error(
                 "model_load_failed",
                 extra={"request_id": "-", "event": "model_load_failed"},
+                exc_info=exc,
+            )
+        try:
+            application.state.db_engine = create_db_engine(runtime_settings)
+            application.state.session_factory = create_session_factory(
+                application.state.db_engine
+            )
+        except (OSError, ValueError) as exc:
+            logger.error(
+                "database_configuration_failed",
+                extra={"request_id": "-", "event": "database_configuration_failed"},
                 exc_info=exc,
             )
         yield
@@ -41,6 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def request_middleware(request: Request, call_next):
         request_id = request.headers.get("X-Request-ID") or str(uuid4())
         request.state.request_id = request_id
+        request.state.event_time = datetime.now(timezone.utc)
         started = time.perf_counter()
         max_body_bytes = (settings or Settings()).max_body_bytes
         content_length = request.headers.get("content-length")
