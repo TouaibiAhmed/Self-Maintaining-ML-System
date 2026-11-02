@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     model_dir: Path = Field(..., description="Path to the active model artifact directory")
     log_level: LogLevel
     max_body_bytes: PositiveInt
+    database_url: str
+    db_pool_size: PositiveInt = 5
+    db_max_overflow: int = Field(default=10, ge=0)
+    db_connect_timeout: PositiveInt = 5
 
     @field_validator("model_dir")
     @classmethod
