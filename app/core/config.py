@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     db_pool_size: PositiveInt = 5
     db_max_overflow: int = Field(default=10, ge=0)
     db_connect_timeout: PositiveInt = 5
+    min_labels: PositiveInt = Field(
+        default=100,
+        description="Minimum labeled rows before performance metrics are reported",
+    )
 
     @field_validator("model_dir")
     @classmethod
