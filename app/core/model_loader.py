@@ -63,8 +63,21 @@ class ModelStore:
         self.model_dir = Path(model_dir)
         self.schema_hash = self._schema_hash()
         self.active_model: Any = self._load()
+        self.threshold = self._load_threshold()
         self.model_version = self.model_dir.name
         self.loaded_at = datetime.now(timezone.utc)
+
+    def _load_threshold(self) -> float:
+        """Read the decision threshold chosen during training, so serving matches evaluation."""
+        metrics_path = self.model_dir / "metrics.json"
+        if not metrics_path.is_file():
+            raise FileNotFoundError(f"Missing model metrics: {metrics_path}")
+        threshold = json.loads(metrics_path.read_text(encoding="utf-8")).get("threshold")
+        if isinstance(threshold, bool) or not isinstance(threshold, int | float):
+            raise ValueError(f"metrics.json has no numeric decision threshold: {metrics_path}")
+        if not 0.0 < threshold < 1.0:
+            raise ValueError(f"Decision threshold must be between 0 and 1, got {threshold}")
+        return float(threshold)
 
     def _load(self) -> Any:
         schema_path = self.model_dir / "feature_schema.json"
@@ -102,5 +115,5 @@ class ModelStore:
             columns=EXPECTED_FEATURE_COLUMNS,
         )
         probability = float(self.active_model.predict_proba(features)[0, 1])
-        predicted_class = int(probability >= 0.5)
+        predicted_class = int(probability >= self.threshold)
         return predicted_class, probability

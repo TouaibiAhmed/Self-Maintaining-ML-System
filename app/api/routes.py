@@ -102,7 +102,7 @@ def ready(request: Request) -> dict[str, str]:
 
 
 @router.get("/model-info")
-def model_info(request: Request) -> dict[str, str]:
+def model_info(request: Request) -> dict[str, str | float]:
     """Return metadata for the active model."""
     model_store = getattr(request.app.state, "model_store", None)
     if model_store is None:
@@ -111,6 +111,7 @@ def model_info(request: Request) -> dict[str, str]:
         "version": model_store.model_version,
         "loaded_at": model_store.loaded_at.isoformat(),
         "schema_hash": model_store.schema_hash,
+        "threshold": model_store.threshold,
     }
 
 

@@ -65,3 +65,44 @@ def test_wrong_schema_is_refused(model_dir: Path, tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="feature schema"):
         ModelStore(invalid_dir)
+
+
+def _copy_artifact(model_dir: Path, target: Path, metrics: dict | None) -> Path:
+    target.mkdir()
+    for name in ("model.joblib", "feature_schema.json"):
+        (target / name).write_bytes((model_dir / name).read_bytes())
+    if metrics is not None:
+        (target / "metrics.json").write_text(json.dumps(metrics), encoding="utf-8")
+    return target
+
+
+def test_threshold_comes_from_artifact_metrics(model_dir: Path) -> None:
+    store = ModelStore(model_dir)
+    expected = json.loads((model_dir / "metrics.json").read_text(encoding="utf-8"))["threshold"]
+
+    assert store.threshold == expected
+
+
+@pytest.mark.parametrize("threshold", [0.01, 0.99])
+def test_predicted_class_uses_artifact_threshold(
+    model_dir: Path, tmp_path: Path, threshold: float
+) -> None:
+    store = ModelStore(_copy_artifact(model_dir, tmp_path / "copy", {"threshold": threshold}))
+
+    predicted_class, probability = store.predict(_features())
+
+    assert predicted_class == int(probability >= threshold)
+    assert predicted_class == (1 if threshold == 0.01 else 0)
+
+
+def test_missing_metrics_is_refused(model_dir: Path, tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="metrics"):
+        ModelStore(_copy_artifact(model_dir, tmp_path / "copy", None))
+
+
+@pytest.mark.parametrize(
+    "metrics", [{}, {"threshold": "0.5"}, {"threshold": 0}, {"threshold": 1.5}]
+)
+def test_invalid_threshold_is_refused(model_dir: Path, tmp_path: Path, metrics: dict) -> None:
+    with pytest.raises(ValueError, match="threshold"):
+        ModelStore(_copy_artifact(model_dir, tmp_path / "copy", metrics))

@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, PositiveInt, field_validator
+from pydantic import Field, PositiveInt, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
@@ -30,6 +30,27 @@ class Settings(BaseSettings):
         default=100,
         description="Minimum labeled rows before performance metrics are reported",
     )
+    monitor_window_size: PositiveInt = Field(
+        default=500, description="Rows in the current monitoring window"
+    )
+    monitor_min_rows: PositiveInt = Field(
+        default=300, description="Below this many rows a monitoring run is insufficient_data"
+    )
+    drift_share_threshold: float = Field(
+        default=0.30,
+        gt=0,
+        le=1,
+        description="Share of drifting features at or above which drift is detected",
+    )
+    monitor_interval_seconds: PositiveInt = Field(
+        default=300, description="Seconds between monitoring runs in --loop mode"
+    )
+
+    @model_validator(mode="after")
+    def validate_monitor_window(self) -> "Settings":
+        if self.monitor_min_rows > self.monitor_window_size:
+            raise ValueError("MONITOR_MIN_ROWS must not exceed MONITOR_WINDOW_SIZE")
+        return self
 
     @field_validator("model_dir")
     @classmethod

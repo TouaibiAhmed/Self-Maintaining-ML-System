@@ -29,3 +29,6 @@ mlflow_data/
 **/docker-volumes/
 **/volumes/
 **/*_data/
+
+# Monitoring reports (generated)
+reports/

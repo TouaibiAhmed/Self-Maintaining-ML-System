@@ -1,4 +1,6 @@
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import UUID
 
@@ -48,8 +50,36 @@ def _settings(tmp_path: Path) -> Settings:
     )
 
 
+class RecordingSession:
+    """In-memory stand-in for a database session, so API tests never write to Postgres."""
+
+    def __init__(self, events: list) -> None:
+        self.events = events
+
+    def add(self, event) -> None:
+        self.events.append(event)
+
+    def commit(self) -> None:
+        pass
+
+    def rollback(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+
+@contextmanager
+def _client(settings: Settings) -> Iterator[TestClient]:
+    application = create_app(settings)
+    with TestClient(application) as client:
+        client.logged_events = []
+        application.state.session_factory = lambda: RecordingSession(client.logged_events)
+        yield client
+
+
 def test_valid_prediction_returns_uuid(tmp_path: Path) -> None:
-    with TestClient(create_app(_settings(tmp_path))) as client:
+    with _client(_settings(tmp_path)) as client:
         response = client.post("/predict", json=_features())
 
     assert response.status_code == 200
@@ -57,12 +87,14 @@ def test_valid_prediction_returns_uuid(tmp_path: Path) -> None:
     UUID(body["prediction_id"])
     assert body["predicted_class"] in {0, 1}
     assert 0 <= body["probability"] <= 1
+    assert len(client.logged_events) == 1
+    assert str(client.logged_events[0].prediction_id) == body["prediction_id"]
 
 
 def test_missing_field_returns_422(tmp_path: Path) -> None:
     payload = _features()
     del payload["gender"]
-    with TestClient(create_app(_settings(tmp_path))) as client:
+    with _client(_settings(tmp_path)) as client:
         response = client.post("/predict", json=payload)
 
     assert response.status_code == 422
@@ -71,14 +103,14 @@ def test_missing_field_returns_422(tmp_path: Path) -> None:
 def test_wrong_type_returns_422(tmp_path: Path) -> None:
     payload = _features()
     payload["tenure"] = "not-an-integer"
-    with TestClient(create_app(_settings(tmp_path))) as client:
+    with _client(_settings(tmp_path)) as client:
         response = client.post("/predict", json=payload)
 
     assert response.status_code == 422
 
 
 def test_oversized_body_is_rejected(tmp_path: Path) -> None:
-    with TestClient(create_app(_settings(tmp_path))) as client:
+    with _client(_settings(tmp_path)) as client:
         response = client.post("/predict", content=json.dumps(_features()) + " " * 1024)
 
     assert response.status_code == 413
@@ -86,7 +118,7 @@ def test_oversized_body_is_rejected(tmp_path: Path) -> None:
 
 def test_model_load_failure_returns_503(tmp_path: Path) -> None:
     settings = Settings(model_dir=tmp_path, log_level="INFO", max_body_bytes=1024)
-    with TestClient(create_app(settings)) as client:
+    with _client(settings) as client:
         ready = client.get("/ready")
         prediction = client.post("/predict", json=_features())
 

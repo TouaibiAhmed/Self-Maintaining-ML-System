@@ -49,15 +49,18 @@ class MonitoringRun(Base):
 
     run_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    window_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    window_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    window_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     sample_count: Mapped[int] = mapped_column(Integer, nullable=False)
     labeled_count: Mapped[int] = mapped_column(Integer, nullable=False)
-    drift_share: Mapped[float] = mapped_column(Float, nullable=False)
-    drift_detected: Mapped[bool] = mapped_column(nullable=False)
+    # NULL means "not measured" (insufficient data or failed run), never "no drift".
+    drift_share: Mapped[float | None] = mapped_column(Float)
+    drift_detected: Mapped[bool | None] = mapped_column()
     drift_summary: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     report_uri: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, nullable=False)
+    error: Mapped[str | None] = mapped_column(Text)
 
 
 class RetrainingRun(Base):
